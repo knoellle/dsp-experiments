@@ -7,5 +7,6 @@ edition = "2021"
 
 [dependencies]
 basic_dsp = "0.9.4"
+plotters = "0.3.1"
 realfft = "3.0.0"
 spectrum-analyzer = "1.2.4"

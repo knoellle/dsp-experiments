@@ -1,8 +1,9 @@
 use realfft::RealFftPlanner;
 
 mod basic_dsp_impl;
+mod tools;
 
-use basic_dsp_impl::f;
+use tools::*;
 
 fn dumb_implementation(shift: f32) -> f32 {
     let length = 256;
@@ -67,6 +68,7 @@ fn run_correlation(shift: f32) -> f32 {
         .iter()
         .zip(spectrum2.iter())
         .map(|(c1, c2)| c1.conj() * c2)
+        .map(|c| c / c.norm())
         .collect::<Vec<_>>();
 
     let mut correlation = c2r.make_output_vec();
@@ -74,6 +76,8 @@ fn run_correlation(shift: f32) -> f32 {
 
     // println!("{:?}", spectrum1);
     // println!("{:?}", spectrum2);
+
+    // plot(&correlation).unwrap();
 
     let (argmax, _max) = correlation
         .iter()
@@ -86,8 +90,9 @@ fn run_correlation(shift: f32) -> f32 {
 }
 
 fn main() {
-    // basic_dsp_impl::gcc_with_basic_dsp();
-    // return;
+    run_correlation(52 as f32);
+    basic_dsp_impl::gcc_with_basic_dsp(52.0);
+    return;
     for shift in 0..256 {
         let dumb = basic_dsp_impl::gcc_with_basic_dsp(shift as f32);
         let ours = run_correlation(shift as f32);

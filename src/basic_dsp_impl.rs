@@ -8,14 +8,7 @@ use basic_dsp::ToComplexVector;
 use basic_dsp::ToRealVector;
 use basic_dsp::Vector;
 
-pub fn f(x: f32) -> f32 {
-    let position = 128.0;
-    if x != position {
-        (x - position).sin() * 100.0 / (x - position).abs()
-    } else {
-        100.0
-    }
-}
+use crate::tools::*;
 
 pub fn gcc_with_basic_dsp(shift: f32) -> f32 {
     let mut buffer = SingleBuffer::new();
@@ -31,7 +24,18 @@ pub fn gcc_with_basic_dsp(shift: f32) -> f32 {
     // sample1.swap_halves();
 
     let argument = sample2.prepare_argument_padded(&mut buffer);
-    let result = sample1.correlate(&mut buffer, &argument);
+    sample1.correlate(&mut buffer, &argument).unwrap();
+    plot(&sample1.data).unwrap();
+    sample1.data = sample1
+        .data
+        .chunks_exact_mut(2)
+        .flatten_map(|c| {
+            let norm = (c[0].powi(2) + c[1].powi(2)).sqrt();
+            c[0] /= norm;
+            c[1] /= norm;
+            c
+        })
+        .collect();
     // println!("{:?}", result);
     // println!("{:?}", sample1.data.len());
     // println!(
