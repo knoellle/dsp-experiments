@@ -1,0 +1,11 @@
+[package]
+name = "cross-correlation-test"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+basic_dsp = "0.9.4"
+realfft = "3.0.0"
+spectrum-analyzer = "1.2.4"
