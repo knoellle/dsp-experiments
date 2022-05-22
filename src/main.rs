@@ -1,4 +1,4 @@
-use std::fs::File;
+use std::{fs::File, path::Path};
 
 use realfft::RealFftPlanner;
 
@@ -54,34 +54,7 @@ fn angles_from_delay(delay: f32, microphone_distance: f32) -> Option<f32> {
     Some(angle)
 }
 
-fn run_correlation(shift: f32) -> f32 {
-    let length = 256;
-    let zeroes = (0..length).map(|_| 0.0).collect::<Vec<_>>();
-    // let sample1 = (0..length)
-    //     .map(|i| f(i as f32))
-    //     .chain(zeroes.clone().into_iter())
-    //     .collect::<Vec<_>>();
-
-    // println!("{:?}", sample1);
-    // let sample2 = (0..length)
-    //     .map(|i| f(i as f32 + shift))
-    //     .chain(zeroes.into_iter())
-    //     .collect::<Vec<_>>();
-
-    let mut file = File::open("front.wav").unwrap();
-    let (header, data) = wav::read(&mut file).unwrap();
-    let mut sample1 = vec![];
-    let mut sample2 = vec![];
-
-    for samples in data.as_eight().unwrap().chunks_exact(4) {
-        sample1.push(samples[0] as f32 / 256.0 - 0.5);
-        sample2.push(samples[2] as f32 / 256.0 - 0.5);
-    }
-
-    println!("{:?}", header);
-    println!("{:?}", sample1);
-    // return 0.0;
-
+fn run_correlation(sample1: &Vec<f32>, sample2: &Vec<f32>) -> f32 {
     let mut planner = RealFftPlanner::<f32>::new();
     let r2c = planner.plan_fft_forward(sample1.len());
     let c2r = planner.plan_fft_inverse(sample2.len());
@@ -107,9 +80,6 @@ fn run_correlation(shift: f32) -> f32 {
 
     plot(&correlation).unwrap();
 
-    // println!("{:?}", spectrum1);
-    // println!("{:?}", spectrum2);
-
     let (argmax, _max) = correlation
         .iter()
         .enumerate()
@@ -121,14 +91,38 @@ fn run_correlation(shift: f32) -> f32 {
     } else {
         argmax
     };
-    println!("Selfmade: {} / {}", argmax, sample1.len());
+    // println!("Selfmade: {} / {}", argmax, sample1.len());
     argmax
 }
 
+fn get_angle_from_file(file: &Path) -> Option<f32> {
+    let mut file = File::open(file).unwrap();
+    let (_header, data) = wav::read(&mut file).unwrap();
+    let mut samples = vec![vec![]; 4];
+
+    for wav_samples in data.as_eight().unwrap().chunks_exact(4) {
+        samples[0].push(wav_samples[0] as f32 / 256.0 - 0.5);
+        samples[1].push(wav_samples[1] as f32 / 256.0 - 0.5);
+        samples[2].push(wav_samples[2] as f32 / 256.0 - 0.5);
+        samples[3].push(wav_samples[3] as f32 / 256.0 - 0.5);
+    }
+    let delay = run_correlation(&samples[0], &samples[1]);
+    let angle = angles_from_delay(delay, 0.116)?.to_degrees();
+    println!("Delay: {}, angle: {}", delay, angle);
+    let delay = run_correlation(&samples[0], &samples[2]);
+    let angle2 = angles_from_delay(delay, 0.0533)?.to_degrees();
+    println!("Delay: {}, angle: {}", delay, angle2);
+
+    let forward = angle2 > 90.0;
+
+    let angle = if forward { -angle } else { angle } + 90.0;
+
+    Some(angle % 360.0)
+}
+
 fn main() {
-    let delay = run_correlation(52 as f32);
-    let angle = angles_from_delay(delay, 0.0533);
-    println!("Delay: {}, angle: {}", delay, angle.unwrap().to_degrees());
+    let angle = get_angle_from_file(Path::new("left_behind_45.wav")).unwrap();
+    println!("Final angle: {}", angle);
     // basic_dsp_impl::gcc_with_basic_dsp(52.0);
     // return;
     // for shift in 0..256 {
