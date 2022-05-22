@@ -22,7 +22,7 @@ pub fn plot(data: &[f32]) -> Result<(), Box<dyn std::error::Error>> {
         .margin(5)
         .x_label_area_size(30)
         .y_label_area_size(50)
-        .build_cartesian_2d(-0f32..512f32, -1f32..max)?;
+        .build_cartesian_2d(data.len() as f32- 100f32..data.len() as f32, -1f32..max)?;
 
     chart.configure_mesh().draw()?;
 

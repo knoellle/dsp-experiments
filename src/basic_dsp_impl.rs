@@ -26,16 +26,16 @@ pub fn gcc_with_basic_dsp(shift: f32) -> f32 {
     let argument = sample2.prepare_argument_padded(&mut buffer);
     sample1.correlate(&mut buffer, &argument).unwrap();
     plot(&sample1.data).unwrap();
-    sample1.data = sample1
-        .data
-        .chunks_exact_mut(2)
-        .flatten_map(|c| {
-            let norm = (c[0].powi(2) + c[1].powi(2)).sqrt();
-            c[0] /= norm;
-            c[1] /= norm;
-            c
-        })
-        .collect();
+    // sample1.data = sample1
+    //     .data
+    //     .chunks_exact_mut(2)
+    //     .flat_map(|c| {
+    //         let norm = (c[0].powi(2) + c[1].powi(2)).sqrt();
+    //         c[0] /= norm;
+    //         c[1] /= norm;
+    //         c
+    //     })
+    //     .collect();
     // println!("{:?}", result);
     // println!("{:?}", sample1.data.len());
     // println!(

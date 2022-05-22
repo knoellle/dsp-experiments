@@ -1,3 +1,5 @@
+use std::fs::File;
+
 use realfft::RealFftPlanner;
 
 mod basic_dsp_impl;
@@ -37,23 +39,52 @@ fn dumb_implementation(shift: f32) -> f32 {
     argmax as f32
 }
 
+fn angles_from_delay(delay: f32, microphone_distance: f32) -> Option<f32> {
+    let speed_of_sound = 343.0;
+    let sample_rate = 44100.0;
+
+    let maximum_delay = microphone_distance / speed_of_sound * sample_rate;
+    println!("Delay: {} Maximum delay: {}", delay, maximum_delay);
+    let ratio = delay / maximum_delay;
+    if ratio < -1.2 || ratio > 1.2 {
+        return None;
+    }
+    let angle = ratio.clamp(-1.0, 1.0).acos();
+
+    Some(angle)
+}
+
 fn run_correlation(shift: f32) -> f32 {
     let length = 256;
     let zeroes = (0..length).map(|_| 0.0).collect::<Vec<_>>();
-    let sample1 = (0..length)
-        .map(|i| f(i as f32))
-        .chain(zeroes.clone().into_iter())
-        .collect::<Vec<_>>();
+    // let sample1 = (0..length)
+    //     .map(|i| f(i as f32))
+    //     .chain(zeroes.clone().into_iter())
+    //     .collect::<Vec<_>>();
 
     // println!("{:?}", sample1);
-    let sample2 = (0..length)
-        .map(|i| f(i as f32 + shift))
-        .chain(zeroes.into_iter())
-        .collect::<Vec<_>>();
+    // let sample2 = (0..length)
+    //     .map(|i| f(i as f32 + shift))
+    //     .chain(zeroes.into_iter())
+    //     .collect::<Vec<_>>();
+
+    let mut file = File::open("front.wav").unwrap();
+    let (header, data) = wav::read(&mut file).unwrap();
+    let mut sample1 = vec![];
+    let mut sample2 = vec![];
+
+    for samples in data.as_eight().unwrap().chunks_exact(4) {
+        sample1.push(samples[0] as f32 / 256.0 - 0.5);
+        sample2.push(samples[2] as f32 / 256.0 - 0.5);
+    }
+
+    println!("{:?}", header);
+    println!("{:?}", sample1);
+    // return 0.0;
 
     let mut planner = RealFftPlanner::<f32>::new();
-    let r2c = planner.plan_fft_forward(length * 2);
-    let c2r = planner.plan_fft_inverse(length * 2);
+    let r2c = planner.plan_fft_forward(sample1.len());
+    let c2r = planner.plan_fft_inverse(sample2.len());
 
     let mut indata = sample1.clone();
 
@@ -74,29 +105,36 @@ fn run_correlation(shift: f32) -> f32 {
     let mut correlation = c2r.make_output_vec();
     c2r.process(&mut spectrum_result, &mut correlation).unwrap();
 
+    plot(&correlation).unwrap();
+
     // println!("{:?}", spectrum1);
     // println!("{:?}", spectrum2);
-
-    // plot(&correlation).unwrap();
 
     let (argmax, _max) = correlation
         .iter()
         .enumerate()
         .max_by(|&(_, first), &(_, second)| first.partial_cmp(second).unwrap())
-        .map(|(index, value)| (index, value))
+        .map(|(index, value)| (index as f32, value))
         .expect("No values in result?");
-    // println!("Selfmade:  {}, {}", shift, argmax);
-    512.0 - argmax as f32
+    let argmax = if argmax > sample1.len() as f32 / 2.0 {
+        -(sample1.len() as f32) + argmax
+    } else {
+        argmax
+    };
+    println!("Selfmade: {} / {}", argmax, sample1.len());
+    argmax
 }
 
 fn main() {
-    run_correlation(52 as f32);
-    basic_dsp_impl::gcc_with_basic_dsp(52.0);
-    return;
-    for shift in 0..256 {
-        let dumb = basic_dsp_impl::gcc_with_basic_dsp(shift as f32);
-        let ours = run_correlation(shift as f32);
-        let basic = basic_dsp_impl::gcc_with_basic_dsp(shift as f32);
-        println!("{}: {}, {}, {}", shift, dumb, ours, basic);
-    }
+    let delay = run_correlation(52 as f32);
+    let angle = angles_from_delay(delay, 0.0533);
+    println!("Delay: {}, angle: {}", delay, angle.unwrap().to_degrees());
+    // basic_dsp_impl::gcc_with_basic_dsp(52.0);
+    // return;
+    // for shift in 0..256 {
+    //     let dumb = basic_dsp_impl::gcc_with_basic_dsp(shift as f32);
+    //     let ours = run_correlation(shift as f32);
+    //     let basic = basic_dsp_impl::gcc_with_basic_dsp(shift as f32);
+    //     println!("{}: {}, {}, {}", shift, dumb, ours, basic);
+    // }
 }
